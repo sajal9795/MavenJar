@@ -1,0 +1,58 @@
+pipeline{
+    agent any
+    stages{
+        stage('SCM-Checkout'){
+            steps {
+                checkout([$class: 'GitSCM',
+            branches: [[name: '*/master']],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [], 
+            submoduleCfg: [], 
+            userRemoteConfigs: [[credentialsId: '40523a17-9ca4-4acb-9417-46612ffcbfa6',
+            url: 'https://github.com/ravipatidar-github/mavenjob.git']]])
+               }
+        }         
+        stage('--package--') {
+                steps {
+                    bat "mvn package"
+                }
+            }
+
+
+            stage('sonarqube analysis') {
+                steps {
+                    script {
+                        def scannerHome = tool 'SONAR_RUNNER_HOME';
+
+                          withSonarQubeEnv(credentialsId: 'Pipeline_Demo') {
+                        bat "${tool("SONAR_RUNNER_HOME")}/bin/sonar-scanner \
+                  -Dsonar.projectKey=Pipeline_Demo \
+                  -Dsonar.sources=. \
+                  -Dsonar.host.url=http://localhost:9000 \
+                      -Dsonar.login=37f3f0393c507b5148b2b4a4b241872acc3de7b9"
+                        }
+                    }
+                }
+            }
+
+            stage ('upload war to nexus') {
+                steps{
+                    nexusArtifactUploader artifacts: [
+                        [artifactId: 'maven-simple',
+                         classifier: '',
+                         file: 'target/maven-simple-0.2-SNAPSHOT.jar',
+                         type: 'jar'
+                         ]
+                ],
+                         credentialsId: 'Nexus',
+                         groupId: 'com.github.jitpack',
+                         nexusUrl: 'localhost:8081/',
+                         nexusVersion: 'nexus3',
+                         protocol: 'http',
+                         repository: 'Demo_Repo',
+                         version: '0.2-SNAPSHOT'
+                }
+
+            }
+        }
+}
